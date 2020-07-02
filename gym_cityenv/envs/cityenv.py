@@ -145,12 +145,11 @@ class CityEnv(gym.Env):
         ]
         ob = self._get_state(scalars)
 
-        while gtk.events_pending():
-            gtk.main_iteration()
-
         self.steps += 1
         if self.steps > 1200:
             done = True
+
+        #self.render()
 
         return ob, reward, done, {}
 
@@ -203,8 +202,8 @@ class CityEnv(gym.Env):
         return self._get_state([1.0, 0])
 
     def render(self, mode="human", close=False):
-        print("render")
-        return
+        while gtk.events_pending():
+            gtk.main_iteration()
 
     def seed(self, seed):
         random.seed(seed)
@@ -214,12 +213,24 @@ class CityEnv(gym.Env):
         self.engine.generateMap()
         self.engine.clearMap()
 
-        n = 5
+        n = 10
         forest = 19
         for i in np.random.randint(16, size=(n, 2)):
             #print(i[0], i[1])
             x, y = int(i[0]), int(i[1])
             self.engine.toolDown(forest, x, y)
+            self.engine.toolDown(forest, x+1, y+1)
+            self.engine.toolDown(forest, x+1, y)
+            self.engine.toolDown(forest, x, y+1)
+
+            if np.random.rand() < 0.3:
+                self.engine.toolDown(forest, x+0, y+2)
+            if np.random.rand() < 0.3:
+                self.engine.toolDown(forest, x+1, y+2)
+            if np.random.rand() < 0.3:
+                self.engine.toolDown(forest, x+2, y+0)
+            if np.random.rand() < 0.3:
+                self.engine.toolDown(forest, x+2, y+1)
 
     def _get_state(self, scalars):
         buffer = self.engine.getMapBuffer()
