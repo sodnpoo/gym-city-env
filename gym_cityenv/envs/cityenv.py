@@ -1,9 +1,3 @@
-#!/usr/bin/env python
-
-"""
-
-"""
-
 import os
 import sys
 import ctypes
@@ -29,6 +23,7 @@ class CityEnv(gym.Env):
 
     def __init__(self):
         self.MAP_X, self.MAP_Y = 16, 16
+        self.max_steps = 1200
 
         self.engine, self.window = frontend.train()
         print(self.engine)
@@ -121,15 +116,16 @@ class CityEnv(gym.Env):
             #'Nil' # the agent takes no action
         ]
 
-
-    def step(self, action):
-        result = self.do(action)
-
-        self.engine.tickEngine() # this calls simTick()
-
-        reward = 0
+    def done(self):
         pop = sum([self.engine.resPop, self.engine.comPop, self.engine.indPop])
         done = pop == 0 and self.last_pop == 0 and self.engine.totalFunds <= 0
+        if self.steps > self.max_steps:
+            done = True
+        return done
+
+    def reward(self):
+        reward = 0
+        pop = sum([self.engine.resPop, self.engine.comPop, self.engine.indPop])
         if self.last_pop != pop:
             diff = pop - self.last_pop
             #print("X", self.last_pop, pop, diff)
@@ -137,6 +133,12 @@ class CityEnv(gym.Env):
             reward = diff
             reward = max(0, reward)
         #print("reward:", reward)
+        return reward
+
+    def step(self, action):
+        result = self.do(action)
+        self.engine.tickEngine() # this calls simTick()
+        reward = self.reward()
 
         funds = self.engine.totalFunds / self.init_funds
         scalars = [
@@ -146,16 +148,12 @@ class CityEnv(gym.Env):
         ob = self._get_state(scalars)
 
         self.steps += 1
-        if self.steps > 1200:
-            done = True
-
+        done = self.done()
         #self.render()
-
         return ob, reward, done, {}
 
     def do(self, action):
-        if action == 0:
-            # no action
+        if action == 0: # no action
             return 0
         action -= 1
         x, y, z = np.unravel_index(action, (self.MAP_X, self.MAP_Y, self.num_tools))
@@ -171,7 +169,6 @@ class CityEnv(gym.Env):
         #y += self.MAP_YS
         result = self.engine.toolDown(int(tool), int(x), int(y))
         return result
-
 
     def reset(self):
         """
@@ -205,32 +202,9 @@ class CityEnv(gym.Env):
         while gtk.events_pending():
             gtk.main_iteration()
 
-    def seed(self, seed):
-        random.seed(seed)
-        np.random.seed
-
     def new_map(self):
         self.engine.generateMap()
         self.engine.clearMap()
-
-        n = 10
-        forest = 19
-        for i in np.random.randint(16, size=(n, 2)):
-            #print(i[0], i[1])
-            x, y = int(i[0]), int(i[1])
-            self.engine.toolDown(forest, x, y)
-            self.engine.toolDown(forest, x+1, y+1)
-            self.engine.toolDown(forest, x+1, y)
-            self.engine.toolDown(forest, x, y+1)
-
-            if np.random.rand() < 0.3:
-                self.engine.toolDown(forest, x+0, y+2)
-            if np.random.rand() < 0.3:
-                self.engine.toolDown(forest, x+1, y+2)
-            if np.random.rand() < 0.3:
-                self.engine.toolDown(forest, x+2, y+0)
-            if np.random.rand() < 0.3:
-                self.engine.toolDown(forest, x+2, y+1)
 
     def _get_state(self, scalars):
         buffer = self.engine.getMapBuffer()
